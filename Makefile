@@ -8,6 +8,9 @@ endif
 
 all: test build install
 
+dpes:
+    dep ensure
+
 test-report-dir:
 	mkdir -p ${TEST_RESULTS}
 
