@@ -27,9 +27,12 @@
     "private/protocol/query",
     "private/protocol/query/queryutil",
     "private/protocol/rest",
+    "private/protocol/restxml",
     "private/protocol/xml/xmlutil",
     "service/cloudformation",
     "service/cloudformation/cloudformationiface",
+    "service/s3",
+    "service/s3/s3iface",
     "service/sts"
   ]
   revision = "cb873de7862ba08c63e82f37ffebc5ba02d87d26"
@@ -187,6 +190,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1c02fa9c7dab52975abcef821b323aa6ae7c85df8c12a474215e0dfa107d246b"
+  inputs-digest = "c8479e0b325cb759722c5e83f17f3de6013635e007ae6da3f1b0b1730dcd2cb2"
   solver-name = "gps-cdcl"
   solver-version = 1
