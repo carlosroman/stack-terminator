@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	cf "github.com/aws/aws-sdk-go/service/cloudformation"
@@ -14,73 +13,107 @@ import (
 	"os"
 )
 
-func deleteDeleteMarkers(ctx context.Context, svc s3iface.S3API, bucket *string, objs []*s3.DeleteMarkerEntry) error {
-	if len(objs) == 0 {
-		return nil
-	}
-
-	dels := make([]*s3.ObjectIdentifier, len(objs))
-	for i, obj := range objs {
-		log.Info("obj:", aws.StringValue(obj.Key), ",", aws.StringValue(obj.VersionId))
-		key := *obj.Key
-		versionId := *obj.VersionId
-		dels[i] = &s3.ObjectIdentifier{
-			Key:       aws.String(key),
-			VersionId: aws.String(versionId),
-		}
-	}
-
-	res, err := svc.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
-		Bucket: bucket,
-		Delete: &s3.Delete{
-			Objects: dels,
-		},
-	})
-	log.Info(res)
-	return err
-}
-
-func deleteObjectVersions(ctx context.Context, svc s3iface.S3API, bucket *string, objs []*s3.ObjectVersion) error {
-	if len(objs) == 0 {
-		return nil
-	}
-
-	dels := make([]*s3.ObjectIdentifier, len(objs))
-	for i, obj := range objs {
-		log.Info("obj:", aws.StringValue(obj.Key), ",", aws.StringValue(obj.VersionId))
-		key := *obj.Key
-		versionId := *obj.VersionId
-		dels[i] = &s3.ObjectIdentifier{
-			Key:       aws.String(key),
-			VersionId: aws.String(versionId),
-		}
-	}
-
-	res, err := svc.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
-		Bucket: bucket,
-		Delete: &s3.Delete{
-			Objects: dels,
-		},
-	})
-	log.Info(res)
-	return err
-}
-
 func main() {
 	log.SetFormatter(&log.TextFormatter{})
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.InfoLevel)
 
-	cli.NewApp()
-	fmt.Printf("hello, world\n")
-	sess := session.Must(session.NewSession())
-	cfsvc := cf.New(sess)
-	s3svc := s3.New(sess)
-	ctx := context.Background()
-	Termainte("bob", ctx, cfsvc, s3svc)
+	app := cli.NewApp()
+	app.Name = "Stack Terminator"
+	app.Authors = []cli.Author{
+		{
+			Name:  "Carlos Roman",
+			Email: "carlosr@cliche-corp.co.uk",
+		},
+	}
+	app.Commands = []cli.Command{
+		{
+			Name:    "delete",
+			Aliases: []string{"d"},
+			Usage:   "Delete a CloudFormation stack",
+			Action: func(c *cli.Context) error {
+				sess := session.Must(session.NewSession())
+				cfsvc := cf.New(sess)
+				s3svc := s3.New(sess)
+				ctx := context.Background()
+				return Terminate(c.Args().First(), ctx, cfsvc, s3svc, 5)
+			},
+		},
+	}
+
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Panic(err)
+	}
 }
 
-func deleteS3Content(ctx context.Context, r *cf.StackResource, s3svc s3iface.S3API) error {
+type item struct {
+	Key       *string
+	VersionId *string
+}
+
+func deleteItems(ctx context.Context, svc s3iface.S3API, bucket *string, objs *[]item) error {
+
+	if len(*objs) == 0 {
+		return nil
+	}
+
+	dels := make([]*s3.ObjectIdentifier, len(*objs))
+	for i, obj := range *objs {
+		//obj := o.(item)
+		log.Info("obj:", aws.StringValue(obj.Key), ",", aws.StringValue(obj.VersionId))
+		key := *obj.Key
+		versionId := *obj.VersionId
+		dels[i] = &s3.ObjectIdentifier{
+			Key:       aws.String(key),
+			VersionId: aws.String(versionId),
+		}
+	}
+
+	res, err := svc.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
+		Bucket: bucket,
+		Delete: &s3.Delete{
+			Objects: dels,
+		},
+	})
+	log.Info(res)
+	return err
+}
+
+//
+//func convertDeleteMarkers(objs []*s3.DeleteMarkerEntry) *[]interface{} {
+//	is := make([]interface{}, len(objs))
+//	for i, o := range objs {
+//		is[i] = o
+//	}
+//	return &is
+//}
+//
+//func convertObjectVersion(objs []*s3.ObjectVersion) *[]interface{} {
+//	is := make([]interface{}, len(objs))
+//	for i, o := range objs {
+//		is[i] = o
+//	}
+//	return &is
+//}
+
+func convertDeleteMarkers(objs []*s3.DeleteMarkerEntry) []item {
+	is := make([]item, len(objs))
+	for i, o := range objs {
+		is[i] = item{o.Key, o.VersionId}
+	}
+	return is
+}
+
+func convertObjectVersion(objs []*s3.ObjectVersion) []item {
+	is := make([]item, len(objs))
+	for i, o := range objs {
+		is[i] = item{o.Key, o.VersionId}
+	}
+	return is
+}
+
+func deleteS3Content(ctx context.Context, r *cf.StackResource, s3svc s3iface.S3API, maxKeys int64) error {
 	count := 0
 	log.Info("===========================")
 	log.Info(r)
@@ -88,18 +121,15 @@ func deleteS3Content(ctx context.Context, r *cf.StackResource, s3svc s3iface.S3A
 
 	objs, err := s3svc.ListObjectVersionsWithContext(ctx, &s3.ListObjectVersionsInput{
 		Bucket:  r.PhysicalResourceId,
-		MaxKeys: aws.Int64(5),
+		MaxKeys: aws.Int64(maxKeys),
 	})
 
 	if err != nil {
 		return err
 	}
 
-	if err := deleteObjectVersions(ctx, s3svc, r.PhysicalResourceId, objs.Versions); err != nil {
-		return err
-	}
-
-	if err := deleteDeleteMarkers(ctx, s3svc, r.PhysicalResourceId, objs.DeleteMarkers); err != nil {
+	ds := append(convertObjectVersion(objs.Versions), convertDeleteMarkers(objs.DeleteMarkers)...)
+	if err := deleteItems(ctx, s3svc, r.PhysicalResourceId, &ds); err != nil {
 		return err
 	}
 
@@ -114,7 +144,7 @@ func deleteS3Content(ctx context.Context, r *cf.StackResource, s3svc s3iface.S3A
 		}
 		objs, err := s3svc.ListObjectVersionsWithContext(ctx, &s3.ListObjectVersionsInput{
 			Bucket:          r.PhysicalResourceId,
-			MaxKeys:         aws.Int64(5),
+			MaxKeys:         aws.Int64(maxKeys),
 			KeyMarker:       aws.String(km),
 			VersionIdMarker: aws.String(vim),
 		})
@@ -127,11 +157,8 @@ func deleteS3Content(ctx context.Context, r *cf.StackResource, s3svc s3iface.S3A
 			return err
 		}
 
-		if err := deleteObjectVersions(ctx, s3svc, r.PhysicalResourceId, objs.Versions); err != nil {
-			return err
-		}
-
-		if err := deleteDeleteMarkers(ctx, s3svc, r.PhysicalResourceId, objs.DeleteMarkers); err != nil {
+		ds := append(convertObjectVersion(objs.Versions), convertDeleteMarkers(objs.DeleteMarkers)...)
+		if err := deleteItems(ctx, s3svc, r.PhysicalResourceId, &ds); err != nil {
 			return err
 		}
 
@@ -149,10 +176,10 @@ func deleteS3Content(ctx context.Context, r *cf.StackResource, s3svc s3iface.S3A
 	return err
 }
 
-func Termainte(stackName string, ctx context.Context, cfsvc cfAPI.CloudFormationAPI, s3svc s3iface.S3API) error {
+func Terminate(stackName string, ctx context.Context, cfsvc cfAPI.CloudFormationAPI, s3svc s3iface.S3API, maxKeys int64) error {
 
 	res, err := cfsvc.DescribeStackResourcesWithContext(ctx, &cf.DescribeStackResourcesInput{
-		StackName: aws.String("test-stack"),
+		StackName: aws.String(stackName),
 	})
 
 	if err != nil {
@@ -163,7 +190,7 @@ func Termainte(stackName string, ctx context.Context, cfsvc cfAPI.CloudFormation
 
 		switch rt := *r.ResourceType; rt {
 		case "AWS::S3::Bucket":
-			err = deleteS3Content(ctx, r, s3svc)
+			err = deleteS3Content(ctx, r, s3svc, maxKeys)
 		default:
 			log.Info("Ignoring resource : ", rt)
 		}
@@ -181,6 +208,6 @@ func Termainte(stackName string, ctx context.Context, cfsvc cfAPI.CloudFormation
 		return err
 	}
 
-	log.Info(del.GoString())
+	log.Info(del)
 	return err
 }
