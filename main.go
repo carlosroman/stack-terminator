@@ -36,7 +36,7 @@ func main() {
 				cfsvc := cf.New(sess)
 				s3svc := s3.New(sess)
 				ctx := context.Background()
-				return Terminate(c.Args().First(), ctx, cfsvc, s3svc, 5)
+				return Terminate(ctx, c.Args().First(), cfsvc, s3svc, 5)
 			},
 		},
 	}
@@ -176,7 +176,7 @@ func deleteS3Content(ctx context.Context, r *cf.StackResource, s3svc s3iface.S3A
 	return err
 }
 
-func Terminate(stackName string, ctx context.Context, cfsvc cfAPI.CloudFormationAPI, s3svc s3iface.S3API, maxKeys int64) error {
+func Terminate(ctx context.Context, stackName string, cfsvc cfAPI.CloudFormationAPI, s3svc s3iface.S3API, maxKeys int64) error {
 
 	res, err := cfsvc.DescribeStackResourcesWithContext(ctx, &cf.DescribeStackResourcesInput{
 		StackName: aws.String(stackName),

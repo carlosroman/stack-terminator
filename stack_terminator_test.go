@@ -42,7 +42,8 @@ var _ = Describe("StackTerminator", func() {
 
 			mockCfSvc.givenDeleteStackWithContextReturns(nil)
 
-			err := Terminate("bob", ctx, mockCfSvc, mockS3Svc, maxKeys)
+			stackName := "bob"
+			err := Terminate(ctx, stackName, mockCfSvc, mockS3Svc, maxKeys)
 
 			It("should clear the correct S3 bucket", func() {
 				Expect(mockS3Svc.AssertCalled(
@@ -86,7 +87,7 @@ var _ = Describe("StackTerminator", func() {
 						"DeleteStackWithContext",
 						ctx,
 						&cf.DeleteStackInput{
-							StackName: aws.String("bob"),
+							StackName: aws.String(stackName),
 						},
 						[]request.Option(nil),
 					)).To(BeTrue(), "Expect DeleteStackWithContext to be called correctly")
