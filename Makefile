@@ -19,7 +19,7 @@ test: test-report-dir
 		-race -v  \
 		./...
 build:
-	go build
+	go build -ldflags="-s -w"
 
 install:
 	go install
