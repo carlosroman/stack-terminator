@@ -1,0 +1,51 @@
+# Build customization
+project_name: stack-terminator
+builds:
+  - 
+    binary: stack-terminator
+    goos:
+      - windows
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - 386
+      - arm
+    goarm:
+      - 7
+    ignore:
+      - goos: darwin
+        goarch: 386
+      - goos: windows
+        goarch: 386
+
+    #hooks:
+    #  post: ./distribution/npm/npm-release.sh
+ 
+archive:
+  format: tar.gz
+  replacements:
+    amd64: 64-bit
+    386: 32-bit
+    darwin: macOS
+  format_overrides:
+    - goos: windows
+      format: zip
+  files:
+    - LICENSE
+
+release:
+  github:
+    owner: carlosroman
+    name: stack-terminator
+  draft: false
+
+fpm:
+  vendor: Cliche Solutions Ltd
+  homepage: https://github.com/carlosroman/stack-terminator
+  maintainer: carlosr@cliche-corp.co.uk
+  description: Stack Terminator is a CLI tool for deleteting AWS CloudFormation stacks.
+  license: Apache 2.0
+  formats:
+    - deb
+    - rpm
