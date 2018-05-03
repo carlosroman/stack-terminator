@@ -27,7 +27,7 @@ var _ = Describe("StackTerminator", func() {
 		ctx := context.Background()
 		maxKeys := int64(5)
 
-		Context("when stack deletes succesfully", func() {
+		Context("when stack deletes successfully", func() {
 			mockCfSvc := &mockCloudFormationClient{ctx: ctx}
 			mockS3Svc := &mockS3Client{ctx: ctx}
 
