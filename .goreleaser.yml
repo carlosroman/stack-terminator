@@ -40,7 +40,7 @@ release:
     name: stack-terminator
   draft: false
 
-fpm:
+nfpm:
   vendor: Cliche Solutions Ltd
   homepage: https://github.com/carlosroman/stack-terminator
   maintainer: carlosr@cliche-corp.co.uk
