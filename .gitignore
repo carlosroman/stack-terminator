@@ -536,4 +536,4 @@ ASALocalRun/
 
 #
 # Project ignores
-#
+dist/
