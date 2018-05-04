@@ -11,6 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 	"os"
+	"time"
 )
 
 func main() {
@@ -28,13 +29,19 @@ func main() {
 	}
 
 	var region string
+	var timeout time.Duration
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:        "aws-region",
-			Usage:       "AWS Region stack is in",
+			Usage:       "the ID of AWS Region stack in, e.g. us-east-1",
 			EnvVar:      "AWS_REGION",
 			Value:       "us-east-1",
 			Destination: &region,
+		},
+		cli.DurationFlag{
+			Name:        "timeout",
+			Usage:       "the time out duration for AWS calls, e.g. 3000ms",
+			Destination: &timeout,
 		},
 	}
 
@@ -50,6 +57,11 @@ func main() {
 				cfsvc := cf.New(sess)
 				s3svc := s3.New(sess)
 				ctx := context.Background()
+				var cancelFn func()
+				if timeout > 0 {
+					ctx, cancelFn = context.WithTimeout(ctx, timeout)
+				}
+				defer cancelFn()
 				return Terminate(ctx, c.Args().First(), cfsvc, s3svc, 5)
 			},
 		},
