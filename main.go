@@ -26,13 +26,27 @@ func main() {
 			Email: "carlosr@cliche-corp.co.uk",
 		},
 	}
+
+	var region string
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:        "aws-region",
+			Usage:       "AWS Region stack is in",
+			EnvVar:      "AWS_REGION",
+			Value:       "us-east-1",
+			Destination: &region,
+		},
+	}
+
 	app.Commands = []cli.Command{
 		{
 			Name:    "delete",
 			Aliases: []string{"d"},
 			Usage:   "Delete a CloudFormation stack",
 			Action: func(c *cli.Context) error {
-				sess := session.Must(session.NewSession())
+				sess := session.Must(session.NewSession(&aws.Config{
+					Region: aws.String(region),
+				}))
 				cfsvc := cf.New(sess)
 				s3svc := s3.New(sess)
 				ctx := context.Background()
