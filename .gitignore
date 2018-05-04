@@ -538,3 +538,4 @@ ASALocalRun/
 # Project ignores
 dist/
 vendor/
+stack-terminator
