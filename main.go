@@ -14,6 +14,10 @@ import (
 	"time"
 )
 
+const LOCAL_BUILD_VERSION = "snapshot"
+
+var version = LOCAL_BUILD_VERSION
+
 func main() {
 	log.SetFormatter(&log.TextFormatter{})
 	log.SetOutput(os.Stdout)
@@ -21,6 +25,7 @@ func main() {
 
 	app := cli.NewApp()
 	app.Name = "Stack Terminator"
+	app.Version = version
 	app.Authors = []cli.Author{
 		{
 			Name:  "Carlos Roman",
@@ -60,16 +65,15 @@ func main() {
 				var cancelFn func()
 				if timeout > 0 {
 					ctx, cancelFn = context.WithTimeout(ctx, timeout)
+					defer cancelFn()
 				}
-				defer cancelFn()
 				return Terminate(ctx, c.Args().First(), cfsvc, s3svc, 5)
 			},
 		},
 	}
 
-	err := app.Run(os.Args)
-	if err != nil {
-		log.Panic(err)
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
 	}
 }
 
@@ -140,10 +144,7 @@ func convertObjectVersion(objs []*s3.ObjectVersion) []item {
 }
 
 func deleteS3Content(ctx context.Context, r *cf.StackResource, s3svc s3iface.S3API, maxKeys int64) error {
-	count := 0
-	log.Info("===========================")
-	log.Info(r)
-	log.Info("===========================")
+	log.Debug(r)
 
 	objs, err := s3svc.ListObjectVersionsWithContext(ctx, &s3.ListObjectVersionsInput{
 		Bucket:  r.PhysicalResourceId,
@@ -159,7 +160,6 @@ func deleteS3Content(ctx context.Context, r *cf.StackResource, s3svc s3iface.S3A
 		return err
 	}
 
-	count = count + len(objs.Versions)
 	vim := aws.StringValue(objs.NextVersionIdMarker)
 	km := aws.StringValue(objs.NextKeyMarker)
 
@@ -188,21 +188,17 @@ func deleteS3Content(ctx context.Context, r *cf.StackResource, s3svc s3iface.S3A
 			return err
 		}
 
-		count = count + len(objs.Versions)
-
 		if len(aws.StringValue(objs.NextKeyMarker)) < 1 {
 			break
 		}
 		km = aws.StringValue(objs.NextKeyMarker)
 		vim = aws.StringValue(objs.NextVersionIdMarker)
 	}
-	log.Info("===========================")
-	log.Info(count)
-	log.Info("===========================")
 	return err
 }
 
 func Terminate(ctx context.Context, stackName string, cfsvc cfAPI.CloudFormationAPI, s3svc s3iface.S3API, maxKeys int64) error {
+	log.Info("About to try and delete stack '", stackName, "'")
 
 	res, err := cfsvc.DescribeStackResourcesWithContext(ctx, &cf.DescribeStackResourcesInput{
 		StackName: aws.String(stackName),
